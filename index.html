@@ -1,22 +1,73 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Live Video Stream</title>
-  <script src="jsmpeg.min.js"></script>
+  <title>WebRTC Browser Client</title>
 </head>
 <body>
-  <h1>Live Stream from Camera</h1>
-  <canvas id="videoCanvas"></canvas>
+  <video id="remoteVideo" autoplay playsinline></video>
   <script>
-    // WebSocket connection
-    const ws = new WebSocket('ws://localhost:3000');
-    
-    // jsmpeg player to render the video stream
-    const player = new JSMpeg.Player(ws, {
-      canvas: document.getElementById('videoCanvas') // Canvas element
+    const remoteVideo = document.getElementById("remoteVideo");
+    const peerConnection = new RTCPeerConnection({
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
     });
+
+    const clientId = "browser";
+    const peerId = "nodejs";
+    const signalingServerUrl = "https://stream-video-gps-rpi.onrender.com";
+
+    async function sendMessage(message) {
+      await fetch(`${signalingServerUrl}/send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to: peerId, message }),
+      });
+    }
+
+    async function receiveMessages() {
+        console.log(`${signalingServerUrl}/receive/${clientId}`);
+      const response = await fetch(`${signalingServerUrl}/receive/${clientId}`);
+      const messages = await response.json();
+      for (const message of messages) {
+        if (message.sdp) {
+          await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+          if (message.sdp.type === "offer") {
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+            sendMessage({ sdp: peerConnection.localDescription });
+          }
+        } else if (message.candidate) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        }
+      }
+    }
+
+    // Handle incoming video stream
+    peerConnection.ontrack = (event) => {
+      remoteVideo.srcObject = event.streams[0];
+    };
+
+    // Handle incoming GPS data
+    peerConnection.ondatachannel = (event) => {
+      const dataChannel = event.channel;
+      dataChannel.onmessage = (event) => {
+        const gpsData = JSON.parse(event.data);
+        console.log("Received GPS data:", gpsData);
+      };
+      dataChannel.onopen = () => console.log("Data channel open");
+      dataChannel.onerror = (error) => console.error("Data channel error:", error);
+    };
+
+    // Start signaling
+    async function startReceiver() {
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      console.log(peerConnection.localDescription)
+      sendMessage({ sdp: peerConnection.localDescription });
+
+      setInterval(receiveMessages, 1000); // Poll signaling server
+    }
+
+    startReceiver();
   </script>
 </body>
 </html>

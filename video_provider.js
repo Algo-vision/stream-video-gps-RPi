@@ -1,14 +1,15 @@
-const { RTCPeerConnection, RTCSessionDescription } = require("wrtc");
-const fs = require("fs");
-const fetch = require("node-fetch");
-
+import pkg from 'wrtc';
+const {RTCPeerConnection,RTCSessionDescription} = pkg;
+import fs from 'fs';
+import fetch from 'node-fetch';
+import { spawn } from 'node:child_process';
 const peerConnection = new RTCPeerConnection({
   iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
 });
 
 const clientId = "nodejs";
 const peerId = "browser";
-const signalingServerUrl = "http://localhost:9000";
+const signalingServerUrl = "https://stream-video-gps-rpi.onrender.com";
 let dataChannel;
 
 // Simulated GPS data
@@ -29,7 +30,9 @@ async function sendMessage(message) {
 }
 
 async function receiveMessages() {
+    console.log()
   const response = await fetch(`${signalingServerUrl}/receive/${clientId}`);
+  console.log(response)
   const messages = await response.json();
   for (const message of messages) {
     if (message.sdp) {
@@ -37,7 +40,8 @@ async function receiveMessages() {
       if (message.sdp.type === "offer") {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
-        sendMessage({ sdp: peerConnection.localDescription });
+        console.log(peerConnection.localDescription )
+        // sendMessage({ sdp: peerConnection.localDescription });
       }
     } else if (message.candidate) {
       await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -47,10 +51,8 @@ async function receiveMessages() {
 
 // Add video stream
 async function addVideoTrack() {
-  const { spawn } = require("child_process");
   const ffmpeg = spawn("ffmpeg", [
-    "-re", // Read input in real time
-    "-i", "video.mp4", // Replace with your video file or camera input
+    "-f", "lavfi" ,"-i" ,"testsrc", // Read input in real time
     "-f", "rawvideo",
     "-pix_fmt", "yuv420p",
     "-s", "640x480", // Resolution
