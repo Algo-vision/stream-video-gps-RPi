@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Video Stream</title>
+  <script src="jsmpeg.min.js"></script>
+</head>
+<body>
+  <h1>Live Stream from Camera</h1>
+  <canvas id="videoCanvas"></canvas>
+  <script>
+    // WebSocket connection
+    const ws = new WebSocket('ws://localhost:3000');
+    
+    // jsmpeg player to render the video stream
+    const player = new JSMpeg.Player(ws, {
+      canvas: document.getElementById('videoCanvas') // Canvas element
+    });
+  </script>
+</body>
+</html>
