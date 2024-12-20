@@ -9,6 +9,8 @@ const messages = {}; // Store messages for each client
 
 // Endpoint to send messages
 app.post("/send", (req, res) => {
+  console.log("recievedmsg");
+  console.log(req.body);
   const { to, message } = req.body;
   if (!messages[to]) messages[to] = [];
   messages[to].push(message);

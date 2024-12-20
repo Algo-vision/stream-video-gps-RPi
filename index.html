@@ -1,73 +1,83 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-  <title>WebRTC Browser Client</title>
+    <title>WebRTC Browser Client</title>
 </head>
+
 <body>
-  <video id="remoteVideo" autoplay playsinline></video>
-  <script>
-    const remoteVideo = document.getElementById("remoteVideo");
-    const peerConnection = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
-    });
+    <video id="remoteVideo" autoplay playsinline></video>
+    <script>
+        const remoteVideo = document.getElementById("remoteVideo");
+        const peerConnection = new RTCPeerConnection({
+            iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+        });
 
-    const clientId = "browser";
-    const peerId = "nodejs";
-    const signalingServerUrl = "https://stream-video-gps-rpi.onrender.com";
+        const clientId = "browser";
+        const peerId = "nodejs";
+        const signalingServerUrl = "https://forty-wasps-mix.loca.lt";
 
-    async function sendMessage(message) {
-      await fetch(`${signalingServerUrl}/send`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ to: peerId, message }),
-      });
-    }
-
-    async function receiveMessages() {
-        console.log(`${signalingServerUrl}/receive/${clientId}`);
-      const response = await fetch(`${signalingServerUrl}/receive/${clientId}`);
-      const messages = await response.json();
-      for (const message of messages) {
-        if (message.sdp) {
-          await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
-          if (message.sdp.type === "offer") {
-            const answer = await peerConnection.createAnswer();
-            await peerConnection.setLocalDescription(answer);
-            sendMessage({ sdp: peerConnection.localDescription });
-          }
-        } else if (message.candidate) {
-          await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+        async function sendMessage(message) {
+            await fetch(`${signalingServerUrl}/send`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "ngrok-skip-browser-warning": true
+                },
+                body: JSON.stringify({ to: peerId, message }),
+            });
         }
-      }
-    }
 
-    // Handle incoming video stream
-    peerConnection.ontrack = (event) => {
-      remoteVideo.srcObject = event.streams[0];
-    };
+        async function receiveMessages() {
+            console.log(`${signalingServerUrl}/receive/${clientId}`);
+            const response = await fetch(`${signalingServerUrl}/receive/${clientId}`, {
+                headers: {
+                    "ngrok-skip-browser-warning": "1",
+                }
+            });
+            const messages = await response.json();
+            for (const message of messages) {
+                if (message.sdp) {
+                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
+                    if (message.sdp.type === "answer") {
+                        const answer = await peerConnection.createAnswer();
+                        await peerConnection.setLocalDescription(answer);
+                        sendMessage({ sdp: peerConnection.localDescription });
+                    }
+                } else if (message.candidate) {
+                    await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
+                }
+            }
+        }
 
-    // Handle incoming GPS data
-    peerConnection.ondatachannel = (event) => {
-      const dataChannel = event.channel;
-      dataChannel.onmessage = (event) => {
-        const gpsData = JSON.parse(event.data);
-        console.log("Received GPS data:", gpsData);
-      };
-      dataChannel.onopen = () => console.log("Data channel open");
-      dataChannel.onerror = (error) => console.error("Data channel error:", error);
-    };
+        // Handle incoming video stream
+        peerConnection.ontrack = (event) => {
+            remoteVideo.srcObject = event.streams[0];
+        };
 
-    // Start signaling
-    async function startReceiver() {
-      const offer = await peerConnection.createOffer();
-      await peerConnection.setLocalDescription(offer);
-      console.log(peerConnection.localDescription)
-      sendMessage({ sdp: peerConnection.localDescription });
+        // Handle incoming GPS data
+        peerConnection.ondatachannel = (event) => {
+            const dataChannel = event.channel;
+            dataChannel.onmessage = (event) => {
+                const gpsData = JSON.parse(event.data);
+                console.log("Received GPS data:", gpsData);
+            };
+            dataChannel.onopen = () => console.log("Data channel open");
+            dataChannel.onerror = (error) => console.error("Data channel error:", error);
+        };
 
-      setInterval(receiveMessages, 1000); // Poll signaling server
-    }
+        // Start signaling
+        async function startReceiver() {
+            const offer = await peerConnection.createOffer();
+            await peerConnection.setLocalDescription(offer);
+            console.log(peerConnection.localDescription)
+            sendMessage({ sdp: peerConnection.localDescription });
 
-    startReceiver();
-  </script>
+            setInterval(receiveMessages, 1000); // Poll signaling server
+        }
+
+        startReceiver();
+    </script>
 </body>
+
 </html>

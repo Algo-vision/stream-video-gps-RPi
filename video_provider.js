@@ -9,7 +9,7 @@ const peerConnection = new RTCPeerConnection({
 
 const clientId = "nodejs";
 const peerId = "browser";
-const signalingServerUrl = "https://stream-video-gps-rpi.onrender.com";
+const signalingServerUrl = "https://pumped-ray-newly.ngrok-free.app";
 let dataChannel;
 
 // Simulated GPS data
@@ -30,18 +30,19 @@ async function sendMessage(message) {
 }
 
 async function receiveMessages() {
-    console.log()
   const response = await fetch(`${signalingServerUrl}/receive/${clientId}`);
-  console.log(response)
   const messages = await response.json();
+  console.log(messages)
+
   for (const message of messages) {
+    console.log(message)
     if (message.sdp) {
       await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
       if (message.sdp.type === "offer") {
         const answer = await peerConnection.createAnswer();
         await peerConnection.setLocalDescription(answer);
         console.log(peerConnection.localDescription )
-        // sendMessage({ sdp: peerConnection.localDescription });
+        sendMessage({ sdp: peerConnection.localDescription });
       }
     } else if (message.candidate) {
       await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -101,3 +102,10 @@ peerConnection.ondatachannel = (event) => {
   await addVideoTrack();
   setInterval(receiveMessages, 1000); // Poll signaling server
 })();
+
+
+
+
+
+
+
