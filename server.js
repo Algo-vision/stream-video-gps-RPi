@@ -25,6 +25,12 @@ app.get("/receive/:clientId", (req, res) => {
   res.json(clientMessages);
 });
 
+// Endpoint to receive messages
+app.get("/", (req, res) => {
+  res.sendFile('index.html');
+
+});
+
 // Start the server
 const PORT = process.env.PORT || 9000;
 app.listen(PORT, () => console.log(`Signaling server running on port ${PORT}`));

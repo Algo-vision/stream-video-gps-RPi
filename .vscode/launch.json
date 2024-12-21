@@ -6,7 +6,8 @@
             "type": "debugpy",
             "request": "launch",
             "program": "main_web_cam_webrtc_server.py",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "justMyCode": false
         }
     ]
 }

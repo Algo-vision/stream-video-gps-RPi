@@ -6,7 +6,7 @@
 </head>
 
 <body>
-    <video id="remoteVideo" autoplay playsinline></video>
+    <video id="remoteVideo" width="320" height="240"  autoplay></video>
     <script>
         const remoteVideo = document.getElementById("remoteVideo");
         const peerConnection = new RTCPeerConnection({
@@ -15,7 +15,7 @@
 
         const clientId = "browser";
         const peerId = "nodejs";
-        const signalingServerUrl = "https://forty-wasps-mix.loca.lt";
+        const signalingServerUrl = "https://stream-video-gps-rpi.onrender.com";
 
         async function sendMessage(message) {
             await fetch(`${signalingServerUrl}/send`, {
@@ -38,11 +38,8 @@
             const messages = await response.json();
             for (const message of messages) {
                 if (message.sdp) {
-                    await peerConnection.setRemoteDescription(new RTCSessionDescription(message.sdp));
                     if (message.sdp.type === "answer") {
-                        const answer = await peerConnection.createAnswer();
-                        await peerConnection.setLocalDescription(answer);
-                        sendMessage({ sdp: peerConnection.localDescription });
+                        await peerConnection.setRemoteDescription(message.sdp);
                     }
                 } else if (message.candidate) {
                     await peerConnection.addIceCandidate(new RTCIceCandidate(message.candidate));
@@ -52,7 +49,28 @@
 
         // Handle incoming video stream
         peerConnection.ontrack = (event) => {
+            console.log("got track")
             remoteVideo.srcObject = event.streams[0];
+        };
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                console.log('ICE candidate');
+                sendMessage({
+                    type: 'candidate',
+                    candidate: event.candidate
+                });
+            }
+        };
+        peerConnection.oniceconnectionstatechange = (event) => {
+            console.log('iceconnectionstatechange -> ', peerConnection?.iceConnectionState);
+        };
+
+        peerConnection.onsignalingstatechange = (event) => {
+            console.log('signalingstatechange -> ', peerConnection?.signalingState);
+        };
+
+        peerConnection.onicecandidateerror = (event) => {
+            console.error('icecandidateerror -> ', peerConnection?.iceConnectionState);
         };
 
         // Handle incoming GPS data
@@ -68,7 +86,9 @@
 
         // Start signaling
         async function startReceiver() {
-            const offer = await peerConnection.createOffer();
+            const offer = await peerConnection.createOffer(options = {
+                offerToReceiveVideo: true
+            });
             await peerConnection.setLocalDescription(offer);
             console.log(peerConnection.localDescription)
             sendMessage({ sdp: peerConnection.localDescription });
