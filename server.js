@@ -27,9 +27,10 @@ app.get("/receive/:clientId", (req, res) => {
 
 // Endpoint to receive messages
 app.get("/", (req, res) => {
-  res.sendFile('index.html');
+  res.sendFile(__dirname+'/public/index.html');
 
 });
+app.use(express.static(__dirname + '/public'));
 
 // Start the server
 const PORT = process.env.PORT || 9000;
