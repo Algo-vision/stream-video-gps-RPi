@@ -44,7 +44,7 @@ class VideoStream(VideoStreamTrack):
 
 
 async def signaling_handler():
-    signaling_server = "ws://localhost:9000"
+    signaling_server = "wss://stream-video-gps-rpi.onrender.com"
     websocket = await websockets.connect(signaling_server)
 
     # Register with the signaling server
