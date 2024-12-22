@@ -1,37 +1,42 @@
-const express = require("express");
-const bodyParser = require("body-parser");
-const cors = require('cors')
-const app = express();
-app.use(bodyParser.json());
-app.use(cors())
+const WebSocket = require("ws");
 
-const messages = {}; // Store messages for each client
+const wss = new WebSocket.Server({ port: 80 });
 
-// Endpoint to send messages
-app.post("/send", (req, res) => {
-  console.log("recievedmsg");
-  console.log(req.body);
-  const { to, message } = req.body;
-  if (!messages[to]) messages[to] = [];
-  messages[to].push(message);
-  res.sendStatus(200);
+const clients = new Map();
+
+wss.on("connection", (ws) => {
+  console.log("Connected client");
+  ws.on("message", (message) => {
+    console.log("Received msg: "+ message);
+    console.log(typeof message)
+    const data = JSON.parse(message);
+
+    if (data.type === "register") {
+      clients.set(data.id, ws);
+      console.log("Registering:" + data.id);
+      console.log(clients);
+      console.log(clients.get('python-provider'));
+      console.log(clients.get('html-client'));
+      ws.send(JSON.stringify({registered:true}));
+    } else if (data.type === "signal") {
+      console.log("target_id: "+data.targetId);
+      const target = clients.get(data.targetId);
+      console.log("type:" + data.type);
+      console.log("target:"+target);
+      if (target) {
+        target.send(JSON.stringify(data));
+      }
+    }
+  });
+
+  ws.on("close", () => {
+    for (const [id, client] of clients.entries()) {
+      if (client === ws) {
+        clients.delete(id);
+        break;
+      }
+    }
+  });
 });
 
-// Endpoint to receive messages
-app.get("/receive/:clientId", (req, res) => {
-  const clientId = req.params.clientId;
-  const clientMessages = messages[clientId] || [];
-  messages[clientId] = []; // Clear messages after sending
-  res.json(clientMessages);
-});
-
-// Endpoint to receive messages
-app.get("/", (req, res) => {
-  res.sendFile(__dirname+'/public/index.html');
-
-});
-app.use(express.static(__dirname + '/public'));
-
-// Start the server
-const PORT = process.env.PORT || 9000;
-app.listen(PORT, () => console.log(`Signaling server running on port ${PORT}`));
+console.log("Signaling server running on ws://localhost:9000");
